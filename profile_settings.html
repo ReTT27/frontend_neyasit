@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	
+	<title>Настройки</title>
+	{% include 'config.html' %}
+
+	<script>
+		$(document).ready(function() {
+			namespace = '/home';
+            var socket = io(namespace);
+
+            socket.on('connect', function() {
+                socket.emit('connected', {data: 'connected to the SocketServer...', socketid:''+socket.id});
+            });
+
+			socket.on('my_response', function(msg, cb) {
+                console.log(msg.chat_id)
+                var notification = new Audio('/static/sound/notification.mp3');
+                notification.play();
+            });
+
+			socket.on('reload', function(cb) {
+                window.location.reload();
+            });
+
+            const resend_button = document.getElementById('resend_email');
+
+            socket.on('resended', function(cb) {
+                resend_button.innerHTML = "Письмо с подтверждением отправлено! Переотправить можно через 10 секунд!";
+                resend_button.removeEventListener('click', resend_email);
+                resend_button.classList.add("confirm-email-disable");
+                setInterval(function(){ resend_button.classList.remove("confirm-email-disable"); resend_button.addEventListener('click', resend_email); resend_button.innerHTML = "Почта не подтверждена, отправить подтверждение снова?"; }, 10000);
+            });
+            
+			if (resend_button != null)
+			{
+				resend_button.addEventListener('click', resend_email);
+			}
+
+            function resend_email(){ 
+                socket.emit('resend_email', {data:"{{ user['login'] }}"});
+            };
+
+
+            const delete_avatar = document.getElementById('delete-avatar');
+            if (delete_avatar != null)
+			{
+				delete_avatar.addEventListener('click', reset_avatar);
+			}
+
+            function reset_avatar()
+            {
+                socket.emit('reset_avatar', {login:"{{ user['login'] }}"});
+            }
+            
+            const date = document.getElementById('start');
+
+            date.max = new Date().toISOString().split("T")[0];    
+
+            const save_changes = document.getElementById('save_changes');
+            if (save_changes != null)
+			{
+				save_changes.addEventListener('click', update_changes);
+			}
+
+            const input = document.getElementById('profile_pic');
+
+            function update_changes()
+            {
+                let birthday = date.value;
+                let city = document.getElementById('city').value;
+                let mail = document.getElementById('mail').value;
+                let upload = false;
+
+                if(input.files.length == 1) {
+                    upload_file();
+                    upload = true;
+                }
+
+                socket.emit('update_changes', {login:"{{ user['login'] }}",birthday:birthday,city:city,email:mail,upload:upload});
+            }
+
+            function upload_file()
+            {
+                
+                //if( typeof files == 'undefined' ) return;
+
+                // создадим объект данных формы
+                var data = new FormData();
+                //console.log(input.files.length);
+                if(input.files.length == 0) {
+                    return;
+                }
+
+                let file = input.files[0];
+
+                data.append("file[]", file, "avatar.jpg");
+
+                // AJAX запрос
+                $.ajax({
+                    url         : './upload/false',
+                    type        : 'POST', // важно!
+                    data        : data,
+                    cache       : false,
+                    dataType    : 'text',
+                    // отключаем обработку передаваемых данных, пусть передаются как есть
+                    processData : false,
+                    // отключаем установку заголовка типа запроса. Так jQuery скажет серверу что это строковой запрос
+                    contentType : false, 
+                    // функция успешного ответа сервера
+                    success     : function( respond, status, jqXHR ){
+                        console.log( 'AJAX запрос: ' + respond);
+                        //window.location.reload();
+                    },
+                    // функция ошибки ответа сервера
+                    error: function( jqXHR, status, errorThrown ){
+                        console.log( 'ОШИБКА AJAX запроса: ' + status, jqXHR );
+                    }
+
+                });
+            }
+		});
+	</script>
+	
+	</head>
+    <body class="custom-scroll">
+		{% include 'header.html' %}
+		
+			<div class="content">
+				{% include 'left-panel.html' %}
+                <div class="" style="width:50%">
+					<div class="right-panel right-panel-profile" style=" display: grid; grid-template-columns: auto 275px; height:fit-content; margin-top:0;">
+						<div class="messages-layout" style="border-right: 1px solid; border-color: #724C9D; ">
+							<div class="header-panel" style="justify-content: flex-start; height: 65px">
+								<div class="header-name" style="margin-left: 15px; margin-top: 3px;">
+									<div style="font-size: 1.3em;">Имя пользователя: {{ user['login'] }}</div>
+									<!-- <div class="search"> <i class="fa fa-search" style="margin-left: 30px;"></i>
+										<input type="text" name="search" placeholder="Поиск" style="outline: none!important;width: 150px;background-color: transparent;color: white;">
+									</div> -->
+								</div>
+							</div>
+							<div class="chats-container" style="display: flex;flex-direction: column;align-content: space-between;width: -webkit-fill-available;height: -webkit-fill-available;">
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">День рождения: </div>
+										<input type="date" id="start" name="" style="margin-left: auto; margin-right: 10px;"
+													value="{% if user['birthday'] %}{{ user['birthday'] }}{% endif %}"
+													min="1900-01-01" max="2016-12-31">
+									</div>
+								</div>
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Родной город: </div>
+										<input maxlength="40" id="city" value="{% if user['city'] %}{{ user['city'] }}{% endif %}" style="margin-left: auto; margin-right: 10px;  width: 200px;"></input>
+									</div>
+								</div>
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Почта: </div>
+										<input maxlength="80" id="mail" {% if user['confirmed'] == 1 %}disabled="disabled"{% endif %} value="{{ user['email'] }}" style="margin-left: auto; margin-right: 10px; width: 200px;"></input>
+									</div>
+								</div>
+                                {% if user['confirmed'] == 0 %}
+                                    <div class="name-profile">
+                                        <div class="link-profile">
+                                            <a id="resend_email" class="name confirm-email" style="margin-left: 10px;">Почта не подтверждена, отправить подтверждение снова?</a>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="name-profile">
+                                        <div class="link-profile">
+                                            <div class="name confirmed-email" style="margin-left: 10px;">Почта подтверждена</div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Фотография профиля: </div>
+                                        <input class="file-input" id="profile_pic" accept=".jpg, .jpeg, .png" name="myFile" type="file">
+									</div>
+								</div>
+                                <div class="name-profile">
+                                    <div class="link-profile">
+                                        <a id="delete-avatar" class="name confirm-email" style="margin-left: 10px; color: white !important;">Сбросить аватар?</a>
+                                    </div>
+                                </div>
+							</div>
+						</div>
+						<div class="messages-layout">	
+							<div style="width: 275px; height:275px; justify-content: flex-start; border-bottom: none;">
+								<img style="width: inherit;height: inherit;border-top-right-radius: 15px;padding-left: 1px;" src="{{ user['user_url_photo'] }}" alt="">
+							</div>
+							<div class="profile-bottom-button" >
+								<a id="save_changes" class="link-friend link-friend-profile" style="border-bottom-left-radius: 0px;">
+									<div>Сохранить изменения</div>
+								</a>
+							</div>
+							<div class="profile-bottom-button">
+								<a href="/logout" class="link-friend link-friend-profile" style="border-bottom-right-radius: 10px;border-bottom-left-radius: 0px;">
+									<div>Выйти из профиля</div>
+								</a>
+							</div>
+						</div>
+					</div>
+					
+					
+					
+						
+					
+				</div>
+			</div>
+		
+	
+</body></html>

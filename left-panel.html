@@ -1,0 +1,8 @@
+<div class="left-panel"> 
+    <a href="/{{ current_user.login }}" class="link"><i class="fal fa-user flex-center"></i>Мой профиль</a> 
+    <a href="/messenger" class="link"><i class="fal fa-comments flex-center"></i>Мессенджер</a> 
+    <a href="/friends" class="link"><i class="fal fa-user-friends flex-center"></i>Друзья</a>
+    <a href="/communities" class="link"><i class="fal fa-users flex-center"></i>Сообщества</a> 
+    <a href="/settings" class="link"><i class="fal fa-gear flex-center"></i>Настройки</a>
+    {% if current_user.role == 2 %}<a href="/admin-panel" class="link"><i class="fal fa-hammer flex-center"></i>Админ-панель</a>{% endif %}
+</div>

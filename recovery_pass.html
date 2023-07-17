@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Установка нового пароля</title>
+{% include 'config.html' %}
+<script>
+	function show_hide_password(target){
+	var input = document.getElementById('password-input');
+	if (input.getAttribute('type') == 'password') {
+		target.classList.add('view');
+		input.setAttribute('type', 'text');
+	} else {
+		target.classList.remove('view');
+		input.setAttribute('type', 'password');
+	}
+	return false;
+}
+</script>
+</head>
+<body>
+    <div style="height: 100%;">
+        {% include 'flash/message_box.html' %}
+        <div id="auth">
+            <div style="font-size: 1.3em;">Установка нового пароля</div>
+            <form method="POST">
+                <input type="password" class="input-sign" name="password1" placeholder="Введите пароль...">
+                <div class="password">
+                    <input class="input-sign"
+                        type="password" 
+                        name="password2"
+                        id="password-input"
+                        placeholder="Подтвердите пароль..."
+                    />
+                    <a href="#" class="password-control" onclick="return show_hide_password(this);"></a>
+                </div>
+                <button class="btn btn_submit_sign" style="width: 60%;" type="submit">Изменить пароль</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+
+{% include 'flash/jinja_addition.html' %}

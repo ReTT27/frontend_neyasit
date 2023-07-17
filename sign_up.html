@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Регистрация</title>
+{% include 'config.html' %}
+
+<script>
+	function show_hide_password(target){ <!-- Функция скрытия пароля -->
+	var input = document.getElementById('password-input');
+	if (input.getAttribute('type') == 'password') {
+		target.classList.add('view');
+		input.setAttribute('type', 'text');
+	} else {
+		target.classList.remove('view');
+		input.setAttribute('type', 'password');
+	}
+	return false;
+}
+</script>
+</head>
+<body>
+    <div style="height: 100%;">
+        {% include 'flash/message_box.html' %}
+        <div id="auth">
+            <div id = "neyasit"></div>
+            <div style="font-size: 1.3em;">Регистрация</div>
+            <form method="POST">
+                <input class="input-sign"
+                    type="text" 
+                    name="email"
+                    placeholder="Введите email"
+                />
+                <input class="input-sign"
+                    type="text" 
+                    name="login"
+                    placeholder="Введите логин"
+                />
+				<div class="password">
+                    <input class="input-sign"
+                        type="password" 
+                        name="password1"
+                        id="password-input"
+                        placeholder="Введите пароль"
+                    />
+                    <a href="#" class="password-control" onclick="return show_hide_password(this);"></a>
+                </div>
+                <input class="input-sign"
+                    type="password" 
+                    name="password2"
+                    placeholder="Потвердите пароль"
+                />
+                <div>
+                    <a href="login">Уже есть аккаунт?</a>
+                </div>
+                {% if not user.is_authenticated %}
+                    <button class="btn btn_submit_sign" style="width: 60%;" type="submit">Зарегистрироваться</button>
+                {% else %}
+                    <button class="btn btn_submit_sign" disabled style="width: 60%;" type="submit">Зарегистрироваться</button>
+                    <a href="/messenger">Вы уже зарегестрированны. Вернуться?</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+
+{% include 'flash/jinja_addition.html' %}
+
+

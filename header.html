@@ -1,0 +1,21 @@
+<header>
+	<div class="header_item headerlogo"> 
+        <img style="width: 135px;" src="/static/images/neyasit-logo.png" alt=""> 
+    </div>
+	<div class="header_section">
+        {% if current_user.role > 0 %}
+            <i class="fa fa-hammer flex-center" style="position: absolute;color: #2c1b47;pointer-events: none;transform: translateX(-130%);align-items: center;">
+                <div style="font-weight: lighter;font-size: 0.7em;margin-left: 5px;color: inherit;">{% if current_user.role == 2 %}Админ{% else %}Модератор{% endif %}</div>
+            </i>
+        {% endif %}
+        <div class="dropdown" style="height: 30px; width: 30px; margin-left: auto; margin-right: 10px">
+            <a href="/{{ current_user.login }}" class="avatar">
+                <img id="avatar_logo" style="height: 30px; width: 30px; border-radius: 100px" src="{{ current_user.user_url_photo }}" alt="">
+            </a>
+            <div class="dropdown-content" style="margin-left: 50px; top: 30px;">
+                <a href="/settings" style="display: flex; justify-content: center; color: white;">Настройки</a>
+                <a href="/logout" style="display: flex; justify-content: center; color: white;">Выход</a>
+            </div>
+        </div> 
+	</div>
+</header>

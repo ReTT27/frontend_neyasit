@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        
+	
+	<title>Настройки сообщества</title>
+	
+	{% include 'config.html' %}
+
+	<script>
+		$(document).ready(function() {
+			namespace = '/home';
+            var socket = io(namespace);
+
+            socket.on('connect', function() {
+                socket.emit('connected', {data: 'connected to the SocketServer...', socketid:''+socket.id});
+            });
+
+			socket.on('my_response', function(msg, cb) {
+                console.log(msg.chat_id)
+                var notification = new Audio('/static/sound/notification.mp3');
+                notification.play();
+            });
+
+			socket.on('reload', function(cb) {
+                window.location.reload();
+            });
+
+			const delete_avatar = document.getElementById('delete-avatar');
+            if (delete_avatar != null)
+			{
+				delete_avatar.addEventListener('click', reset_avatar);
+			}
+
+			const friends = Array.from(document.getElementsByClassName("friend"));
+			if (friends != null)
+			{
+				friends.forEach(e => {
+					e.addEventListener('click', add_friend.bind(this, e.name));
+				});
+			}
+
+			const mods = Array.from(document.getElementsByClassName("mod"));
+			if (mods != null)
+			{
+				mods.forEach(e => {
+					e.addEventListener('click', remove_moder.bind(this, e.name));
+				});
+			}
+
+			function add_friend(value)
+            {
+                $('#moderators').append(
+					'<div class="hoverthis" style="padding:3px; border-radius: 8px; border: 2px solid #724d9d; width: 100px; height: 15px; font-size: 12px; margin: 5px;">'+
+						'<a class="mod" name="'+value+'" style="display: flex; justify-content: center; color: white;">'+value+'</a>'+
+					'</div>'
+				);
+				document.getElementsByClassName("friend")[value].remove();
+				document.getElementsByClassName("mod")[value].addEventListener('click', remove_moder.bind(this, value));
+            };
+
+			function remove_moder(value)
+            {
+                $('#friends').append(
+					'<a class="friend" name="'+value+'" style="display: flex; justify-content: center; color: white;">'+value+'</a>'
+				);
+				document.getElementsByClassName("mod")[value].parentElement.remove();
+				document.getElementsByClassName("friend")[value].addEventListener('click', add_friend.bind(this, value));
+            };
+
+            function reset_avatar()
+            {
+                socket.emit('reset_avatar_community', {login:'{{group.unique_name}}'});
+            };
+
+            const save_changes = document.getElementById('save_changes');
+            if (save_changes != null)
+			{
+				save_changes.addEventListener('click', update_changes);
+			}
+
+            const input = document.getElementById('profile_pic');
+
+            function update_changes()
+            {
+				let upload = false;
+
+                if(input.files.length == 1) {
+                    upload_file();
+                    upload = true;
+                }
+
+				let name = document.getElementById('name').value;
+				let checkedbox = document.getElementById('checkedbox').checked;
+				let desc = document.getElementById('desc').value;
+
+				const mods = Array.from(document.getElementsByClassName("mod"));
+				moderators = []
+				mods.forEach(e => {
+					moderators.push(e.name);
+				});
+
+                socket.emit('update_changes_group', {creator_login:'{{ user.login }}',login:'{{group.unique_name}}',name:name,checkedbox:checkedbox,desc:desc,upload:upload,moderators:moderators});
+            };
+
+			//console.log('{{group.hide_creator}}')
+
+			if ('{{group.hide_creator}}' != 'False')
+			{
+				document.getElementById('checkedbox').checked = true;
+			}
+			
+			function upload_file()
+            {
+                // ничего не делаем если files пустой
+                //if( typeof files == 'undefined' ) return;
+
+                // создадим объект данных формы
+                var data = new FormData();
+                //console.log(input.files.length);
+                if(input.files.length == 0) {
+                    return;
+                }
+
+                let file = input.files[0];
+
+                data.append("file[]", file, "avatar.jpg");
+
+                // AJAX запрос
+                $.ajax({
+                    url         : '/upload/true'+'?group='+"{{ group['id'] }}",
+                    type        : 'POST', // важно!
+                    data        : data,
+                    cache       : false,
+                    dataType    : 'text',
+                    // отключаем обработку передаваемых данных, пусть передаются как есть
+                    processData : false,
+                    // отключаем установку заголовка типа запроса. Так jQuery скажет серверу что это строковой запрос
+                    contentType : false, 
+                    // функция успешного ответа сервера
+                    success     : function( respond, status, jqXHR ){
+                        console.log( 'AJAX запрос: ' + respond);
+                        //window.location.reload();
+                    },
+                    // функция ошибки ответа сервера
+                    error: function( jqXHR, status, errorThrown ){
+                        console.log( 'ОШИБКА AJAX запроса: ' + status, jqXHR );
+                    }
+
+                });
+            }
+
+		});
+	</script>
+	
+	</head>
+    <body class="custom-scroll">
+		{% include 'header.html' %}
+			<div class="content">
+				{% include 'left-panel.html' %}
+                <div class="" style="width:50%">
+					<div class="right-panel right-panel-profile" style=" display: grid; grid-template-columns: auto 275px; height:fit-content; margin-top:0;">
+						<div class="messages-layout" style="border-right: 1px solid; border-color: #724C9D; ">
+							
+							<div class="chats-container" style="display: flex;flex-direction: column;align-content: space-between;width: -webkit-fill-available;height: -webkit-fill-available;">
+								
+								<div class="name-profile">
+									<div class="link-profile" style="grid-template-columns: 190px auto !important;">
+										<div class="name" style="margin-left: 10px;">Название сообщества: </div>
+										<input maxlength="100" id="name" value="{{group.name}}" style="margin-left: auto; margin-right: 10px;  width: -webkit-fill-available;">
+									</div>
+								</div>
+								
+								<div class="name-profile" >
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Создатель сообщества: </div>
+										<div style="margin-left: auto; margin-right: 10px;">
+											<input type="checkbox" id="checkedbox" style=" width: 10px; height: 10px;">
+											<label for="scales">Скрыть?</label>
+										</div>
+									</div>
+								</div>
+								
+								<div class="name-profile" style="margin-top: 10px;margin-bottom: 10px;height: auto;">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Описание: </div>
+										<textarea maxlength="150" id="desc" value="{{group.desc}}" style="margin-left: auto; margin-right: 10px;  width: 500px; height: 50px; resize: none; border-radius: 10px; outline: none; border-width: 2px; border-color: #724c9d;"></textarea>
+									</div>
+								</div>
+								
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Фотография сообщества: </div>
+                                        <input class="file-input" id="profile_pic" accept=".jpg, .jpeg, .png" name="myFile" type="file">
+									</div>
+								</div>
+                                <div class="name-profile">
+                                    <div class="link-profile">
+                                        <a id="delete-avatar" class="name confirm-email" style="margin-left: 10px; color: white !important;">Сбросить аватар?</a>
+                                    </div>
+                                </div>
+
+								<div class="name-profile" style="height: auto;">
+                                    <div class="link-profile" style="grid-template-columns: 110px auto !important;">
+                                        <div class="name" style="align-self: flex-start; margin-left: 10px;">Модераторы: </div>
+                                        <div class="dropdown" style="margin-right: 10px;">
+                                            <div id="moderators" style="min-height: 25px; border-radius: 10px; border: 2px solid #724d9d; width: -webkit-fill-available; display: flex; align-content: center; flex-wrap: wrap; justify-content: flex-start;">
+												{% if moderators|count != 0 %}
+													{% for mod in moderators %}
+														<div class="hoverthis" style="padding:3px; border-radius: 8px; border: 2px solid #724d9d; width: 100px; height: 15px; font-size: 12px; margin: 5px;">
+															<a class="mod" name="{{ mod }}" style="display: flex; justify-content: center; color: white;">{{ mod }}</a>
+														</div>
+													{% endfor %}
+												{% endif %}
+                                            </div>
+                                            <div id="friends" class="dropdown-content custom-scroll" style="margin-left: 90%;width: 250px;max-height: 100px;overflow-y: scroll;position: inherit;">
+                                                {% if no_mod %}
+													{% for friend in no_mod %}
+														<a class="friend" name="{{ friend }}" style="display: flex; justify-content: center; color: white;">{{ friend }}</a>
+													{% endfor %}
+												{% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+								
+							</div>
+						</div>
+						<div class="messages-layout">	
+							<div style="width: 275px; height:275px; justify-content: flex-start; border-bottom: none;">
+								<img style="width: inherit;height: inherit;border-top-right-radius: 15px;padding-left: 1px;" src="{{group.url_photo}}" alt="">
+							</div>
+							<div class="profile-bottom-button">
+								<a id="save_changes" class="link-friend link-friend-profile" style="border-bottom-left-radius: 0px;">
+									<div>Сохранить изменения</div>
+								</a>
+							</div>
+							<div class="profile-bottom-button">
+								<a href="/community/{{group.unique_name}}" class="link-friend link-friend-profile" style="border-bottom: 1px solid #724C9D; border-bottom-right-radius: 10px;border-bottom-left-radius: 0px;">
+									<div>Назад</div>
+								</a>
+							</div>
+						</div>
+					</div>
+					
+					
+					
+						
+					
+				</div>
+			</div>
+		
+	
+</body></html>

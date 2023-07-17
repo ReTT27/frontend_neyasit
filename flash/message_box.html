@@ -1,0 +1,9 @@
+<div class="flash-message-box"></div>
+<script>
+    function set_message(category,text) { <!-- Функция вывода сообщения -->
+        var $item = $('<div class="flash message-'+category+'">' + text + '</div>');
+        $item.appendTo($('.flash-message-box ')).delay(5000).slideUp(200, function(){
+            $item.remove();
+        });
+    }
+</script>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Забыли пароль?</title>
+{% include 'config.html' %}
+</head>
+<body>
+    <div style="height: 100%;">
+        {% include 'flash/message_box.html' %}
+        <div id="auth">
+            <form method="POST">
+                <input type="text" class="input-sign" name="login" placeholder="Введите логин...">
+                <button class="btn btn_submit_sign" style="width: 60%;" type="submit">Отправить писмо восстановления</button>
+                <div style="display: flex; gap: 20px;">
+                    <a href="/login">Назад?</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+
+{% include 'flash/jinja_addition.html' %}

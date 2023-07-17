@@ -1,0 +1,329 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Неясыть | Мессенджер</title>
+    {% include 'config.html' %}
+	<script type="text/javascript" charset="utf-8">
+        $(document).ready(function() {
+            String.format = function() {
+                var s = arguments[0];
+                for (var i = 0; i < arguments.length - 1; i++) {
+                    var reg = new RegExp("\\{" + i + "\\}", "gm");
+                    s = s.replace(reg, arguments[i + 1]);
+                }
+                return s;
+            }    
+
+            function getUrlParameter(name) {
+                name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+                var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+                var results = regex.exec(location.search);
+                return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+            };
+
+            function appendNewMessage(login,text,time,b)
+            {
+                if (b == true) t = " left"; else t = "";
+                
+                //Сверка дат
+                var currentDate = new Date().toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' });
+                var dates = $(".date")
+                //Добавления блока даты
+                if(currentDate != dates[dates.length-1].innerText)
+                {
+                    $('#messages-container').append(
+                        '<div class="date-holder">'+
+                            '<div class="date">'+currentDate+'</div>'+
+                        '</div>'
+                    ); 
+                }
+                //Добавление сообщения
+                $('#messages-container').append(
+                    '<div class="message-holder'+t+'">'+
+                        String.format('<div style="font-size: 0.75em; margin-right: 5px; margin-left: 5px; margin-top: 3px;">{0}</div>',login)+
+                        String.format('<div class="message">{0}',text)+
+                            String.format('<span class="message-time">{0}</span>',time)+
+                        '</div>'+
+                    '</div>'
+                ); 
+                //Проскролить вниз все сообщения
+                var obj = document.getElementById("scroll");
+                obj.scrollTop = obj.scrollHeight;
+            };
+
+            namespace = '/home';
+            var socket = io(namespace);
+
+            socket.on('connect', function() {
+                socket.emit('connected', {data: 'connected to the SocketServer...', socketid:''+socket.id});
+            });
+
+            if (getUrlParameter('friend_socket_id')!="")
+            {
+                console.log('da')
+                socket.emit('reload_his_page', {socketid:getUrlParameter('friend_socket_id')});
+            }
+
+            socket.on('my_response', function(msg, cb) {
+                console.log(msg.chat_id)
+                var notification = new Audio('/static/sound/notification.mp3');
+                notification.play();
+
+                if (getUrlParameter('chat_id')==msg.chat_id){
+                    appendNewMessage(msg.send_login,msg.text,msg.time,true);
+                }
+                else
+                {
+                    
+                }
+            });
+            
+            socket.on('reload', function(cb) {
+                window.location.reload();
+            });
+
+            $('form#send-message').submit(function(event) {
+                text = $('form#send-message').serializeArray().at(0).value;
+                login = $('form#send-message').serializeArray().at(1).value;
+                socket.emit('send_message', {chat_id: getUrlParameter('chat_id'), send_login:login,text: text});
+                
+                var currentTime = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute:'2-digit' });
+
+                appendNewMessage('Вы',text,currentTime,false)
+
+                $(':input','#send-message')
+                    .not(':button, :submit, :reset, :hidden')
+                    .val('')
+                    .removeAttr('checked')
+
+                return false;
+            });
+            $('form#broadcast').submit(function(event) {
+                socket.emit('my_broadcast_event', {data: $('#broadcast_data').val()});
+                return false;
+            });
+            $('form#disconnect').submit(function(event) {
+                socket.emit('disconnect_request');
+                return false;
+            });
+            
+            var obj = document.getElementById("scroll");
+            obj.scrollTop = obj.scrollHeight;
+
+            // search in chats
+
+            String.prototype.like = function(search) {
+				if (typeof search !== 'string' || this === null) {return false; }
+				search = search.replace(new RegExp("([\\.\\\\\\+\\*\\?\\[\\^\\]\\$\\(\\)\\{\\}\\=\\!\\<\\>\\|\\:\\-])", "g"), "\\$1");
+				search = search.replace(/%/g, '.*').replace(/_/g, '.');
+				return RegExp('^' + search + '$', 'gi').test(this);
+			}
+
+            var timeoutHandle;
+            var chats_container = ""; 
+
+            $('#search-chat').bind('input', function() { 
+				value = $(this).val();
+				window.clearTimeout(timeoutHandle);
+				if (value != "")
+					timeoutHandle = setTimeout(function(){ searchChats(value); }, 2000);
+				else
+					timeoutHandle = setTimeout(function(){ restoreFriends(); }, 2000);
+			});
+
+            function searchChats(value) {
+                if(chats_container == "")
+                    chats_container = document.getElementById("chats").innerHTML;
+                document.getElementById("chats").innerHTML = chats_container;
+                let a = [];
+                for (const element of document.getElementById("chats").children) {
+                    search_string = element.children[0].children[1].innerHTML;
+                    if(search_string.like("%"+value+"%") == false)
+                    {
+                        a.push(element)
+                    }
+                }
+                for (const e of a)
+                    e.remove()
+                if(document.getElementById("chats").children.length == 0)
+                    document.getElementById("chats").innerHTML = '<div class="time">Ничего не найдено</div>'
+			};
+
+			function restoreFriends() {
+				document.getElementById("chats").innerHTML = chats_container;
+			};
+
+            //
+
+            // create group chat
+
+            document.querySelector('#create-chat').addEventListener('click', function(ev)
+			{
+				value = $('#create-chat-input').val();
+
+                if (value == '')
+                    return;
+
+                socket.emit('create_chat', {data:value});
+			});
+
+            //
+
+            // add friend to chat
+
+            const friend_list_to_add = document.querySelectorAll(".name-friends-add-in-chat");
+
+			friend_list_to_add.forEach((e) => {
+				e.addEventListener('click', function(ev)
+				{
+                    chat_id = getUrlParameter('chat_id');
+					friend_login = this.children[1].innerHTML;
+                    
+                    socket.emit('add_friend_to_chat', {cid:chat_id,flogin:friend_login});
+				});
+			});
+
+            //
+
+        });
+    </script>
+</head>
+<body class="custom-scroll">
+	{% include 'header.html' %}
+    {% include 'flash/message_box.html' %}
+	<div class="content">
+		{% include 'left-panel.html' %}
+		<div class="right-panel" style=" display: grid; grid-template-columns: 300px auto;">
+			<div class="messages-layout" style="border-right: 1px solid; border-color: #724C9D; ">
+				<div class="header-panel">
+					<div class="search"> <i class="fa fa-search"></i>
+						<input id="search-chat" type="text" name="search" placeholder="Поиск" style="outline: none!important;width: -webkit-fill-available;background-color: transparent;color: white;" />
+                        <div class="dropdown">
+							<i class="fal fa-users-medical"></i>
+							<div class="dropdown-content">
+								<input id="create-chat-input" type="text" name="create-chat" class="create-chat" placeholder="Название чата" style="outline: none!important; width: -webkit-fill-available;background-color: transparent;color: white;">
+								<a id="create-chat" style="display: flex; justify-content: center; color: white;">Создать чат</a>
+							</div>
+						</div>
+                    </div>
+				</div>
+					<div class="Transition slide">
+						<div class="Transition__slide--active">
+							<div class="ChatList custom-scroll">
+								<div id="chats" class="chats-container">
+                                {% if chats %}
+                                    {% for chat in chats.values() %}
+                                        <a href="/messenger?chat_id={{ chat.chat_id }}" id="chat_id={{ chat.chat_id }}" class="link-chat">
+                                            <div class="name-chat">
+                                                <img src="{{ chat.chat_url_photo }}" style="width: 30px; height: 30px; border-radius: 100px; margin-left: 15px;" alt="">
+                                                <div class="name">{{ chat.chat_name }}</div>
+                                            </div>
+                                        </a>
+                                    {% endfor %}
+                                {% endif %}
+								</div>
+							</div>
+						</div>
+					</div>
+			</div>
+			<div class="messages-layout">
+				<div class="header-panel" style="justify-content: space-between;">
+                    {% if chats %}
+                        {% if chat_id %}
+                            <div class="header-name" style="margin-left: 10px"><img src="{{ chats[chat_id | int].chat_url_photo }}" style="height: 30px; width: 30px; border-radius: 100px" alt="">
+                                <div style="font-size: 1em;margin-left: 10px;display: flex;align-items: center;">{{ chats[chat_id | int].chat_name }}</div>
+                            </div>
+                            {% if chats[chat_id | int].is_group %}
+                                <div class="dropdown-add">
+                                    <i class="fal fa-user-plus"></i>
+                                    <div class="dropdown-content-add custom-scroll">
+                                        <div class="friends-container">
+                                            {% if friends %}
+                                                {% for friend in friends %}
+                                                    <a class="name-friends-add-in-chat">							
+                                                        <img src="{{ friend.user_url_photo }}" style="width: 30px; height: 30px; border-radius: 100px; margin-left: 15px;" alt="">
+                                                        {% if friend.user_fi != None %}
+                                                            <div class="name">{{ friend.user_fi }}</div>
+                                                        {% else %}
+                                                            <div class="name">{{ friend.login }}</div>
+                                                        {% endif %}
+                                                    </a>	
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="time">
+                                                    Либо у вас нет друзей, либо вы уже всех добавили
+                                                </div>	
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="header-name" style="margin-left: 10px"><img src="/static/images/neyasit_dead.png" style="height: 30px; width: 30px; border-radius: 100px" alt="">
+                                <div style="font-size: 1em;margin-left: 10px;display: flex;align-items: center;">Выберете чат</div>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="header-name" style="margin-left: 10px"><img src="/static/images/neyasit_dead.png" style="height: 30px; width: 30px; border-radius: 100px" alt="">
+                            <div style="font-size: 1em;margin-left: 10px;display: flex;align-items: center;">У вас нет ни одного чата</div>
+                        </div>
+                    {% endif %}
+				</div>
+				<div class="Transition slide">
+					<div class="Transition__slide--active">
+						<div id="scroll" class="MessageList custom-scroll">
+							<div id="messages-container" class="messages-container">
+								
+                                {% if chat_messages %}
+                                    {% set vars = namespace(time=None) %}
+                                    {% for message in chat_messages %}
+                                    
+                                        {% if vars.time != message['send_time'].date().strftime("%Y-%m-%d") %}
+                                            <div class="date-holder">
+                                                <div class="date">{{ message['send_time'].date().strftime("%d.%m.%Y") }}</div>
+                                            </div>
+                                        {% endif %}
+
+                                        {% if time != message['send_time'].date().strftime("%Y-%m-%d") %}
+                                            {% set vars.time = message['send_time'].date().strftime("%Y-%m-%d") %}
+                                        {% endif %}
+
+                                        {% if message['from_login'] == current_user.login %}
+                                            <div class="message-holder">
+                                                <div style="font-size: 0.75em; margin-right: 5px; margin-left: 5px; margin-top: 3px;">Вы</div>
+                                                <div class="message">{{ message['text'] }}
+                                                    <span class="message-time">{{ message['send_time'].time().strftime("%H:%M") }}</span>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="message-holder left">
+                                                <div style="font-size: 0.75em; margin-right: 5px; margin-left: 5px; margin-top: 3px;">{{ message['from_login'] }}</div>
+                                                <div class="message">{{ message['text'] }}
+                                                    <span class="message-time">{{ message['send_time'].time().strftime("%H:%M") }}</span>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="under-panel">
+					<div style="height: 100%">
+						<form id="send-message" action="" class="message-input" method="POST">
+							<input class="input" id="input-send-msg" type="text" name="message" placeholder="Введите сообщение...">
+							<input type="hidden" name="login" value="{{ current_user.login }}">
+                            <button class="send-button" type="submit" name="btn"><i class="fa fa-paper-plane send-text"></i></button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+    {% include 'bottom-navbar.html' %}
+</body>
+</html>
+
+{% include 'flash/jinja_addition.html' %}

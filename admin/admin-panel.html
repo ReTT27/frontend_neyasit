@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+	<title>Админ панель</title>
+	
+	{% include 'config.html' %}
+
+	<script>
+		$(document).ready(function() {
+			namespace = '/admin';
+            var socket = io(namespace);
+
+            socket.on('connect', function() {
+                console.log('connected')
+            });
+
+			socket.on('reload', function(cb) {
+                                window.location.reload();
+            });
+
+            const save_changes = document.getElementById('save_changes');
+            if (save_changes != null)
+			{
+				save_changes.addEventListener('click', update_changes);
+			}
+
+            function update_changes() <!-- Функция вывода модераторов -->
+            {
+                const mods = Array.from(document.getElementsByClassName("mod"));
+				moderators = []
+				mods.forEach(e => {
+					moderators.push(e.name);
+				});
+
+                socket.emit('update_moderators', {login:"{{ user.login }}",moderators:moderators});
+            }
+
+			const friends = Array.from(document.getElementsByClassName("friend"));
+			if (friends != null)
+			{
+				friends.forEach(e => {
+					e.addEventListener('click', add_friend.bind(this, e.name));
+				});
+			}
+
+			const mods = Array.from(document.getElementsByClassName("mod"));
+			if (mods != null)
+			{
+				mods.forEach(e => {
+					e.addEventListener('click', remove_moder.bind(this, e.name));
+				});
+			}
+
+			function add_friend(value) <!-- Функция добавления модераторов -->
+            {
+                $('#moderators').append(
+					'<div class="hoverthis" style="padding:3px; border-radius: 8px; border: 2px solid #724d9d; width: 100px; height: 15px; font-size: 12px; margin: 5px;">'+
+						'<a class="mod" name="'+value+'" style="display: flex; justify-content: center; color: white;">'+value+'</a>'+
+					'</div>'
+				);
+				document.getElementsByClassName("friend")[value].remove();
+				document.getElementsByClassName("mod")[value].addEventListener('click', remove_moder.bind(this, value));
+            };
+
+			function remove_moder(value) <!-- Функция удаления модераторов -->
+            {
+                $('#friends').append(
+					'<a class="friend" name="'+value+'" style="display: flex; justify-content: center; color: white;">'+value+'</a>'
+				);
+				document.getElementsByClassName("mod")[value].parentElement.remove();
+				document.getElementsByClassName("friend")[value].addEventListener('click', add_friend.bind(this, value));
+            };
+		});
+	</script>
+	
+	</head>
+    <body class="custom-scroll">
+		{% include 'header.html' %}
+			<div class="content">
+				{% include 'left-panel.html' %}
+                <div class="" style="width:50%">
+					<div class="right-panel right-panel-profile" style=" display: grid;height: 70%; margin-top:0;">
+						<div class="messages-layout" >
+							<div class="header-panel" style="justify-content: flex-start; height: 65px">
+								<div class="header-name" style="margin-left: 15px; margin-top: 3px;">
+									<div style="font-size: 1.3em;">Панель администратора</div>
+								</div>
+							</div>
+							<div class="chats-container" style="display: flex;flex-direction: column;align-content: space-between;width: -webkit-fill-available;height: -webkit-fill-available; margin-top: 10px;">
+								<div class="name" style="align-self: flex-start;margin-left: 10px;margin-bottom: 5px;color: #ffffff3d;font-size: 0.7em;">Все установленные модераторы получат доступ к удалению любого поста!*</div>
+								<div class="name-profile" style="height: auto;">
+                                    <div class="link-profile" style="grid-template-columns: 110px auto !important;">
+										<div class="name" style="align-self: flex-start; margin-left: 10px;">Модераторы: </div>
+                                        <div class="dropdown" style="margin-right: 10px;">
+                                            <div id="moderators" style="min-height: 25px; border-radius: 10px; border: 2px solid #724d9d; width: -webkit-fill-available; display: flex; align-content: center; flex-wrap: wrap; justify-content: flex-start;">
+												{% if moderators|count != 0 %}
+													{% for mod in moderators %}
+														<div class="hoverthis" style="padding:3px; border-radius: 8px; border: 2px solid #724d9d; width: 100px; height: 15px; font-size: 12px; margin: 5px;">
+															<a class="mod" name="{{ mod }}" style="display: flex; justify-content: center; color: white;">{{ mod }}</a>
+														</div>
+													{% endfor %}
+												{% endif %}
+                                            </div>
+                                            <div id="friends" class="dropdown-content custom-scroll" style="margin-left: 90%;width: 250px;max-height: 100px;overflow-y: scroll;position: inherit;">
+                                                {% if no_mod %}
+													{% for friend in no_mod %}
+														<a class="friend" name="{{ friend }}" style="display: flex; justify-content: center; color: white;">{{ friend }}</a>
+													{% endfor %}
+												{% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+								 
+							</div>
+						</div>
+						
+						<button id="save_changes" class="btn btn_submit_sign" style="width: fit-content;height: fit-content;padding: 14px;align-self: flex-end;margin: 10px;margin-left: auto;" type="submit">Сохранить изменения</button>
+					</div>
+					
+					
+					
+						
+					
+				</div>
+			</div>
+		
+	
+</body></html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        
+	
+	<title>Создание сообщества</title>
+	
+	{% include 'config.html' %}
+
+	<script>
+		$(document).ready(function() {
+			namespace = '/home';
+            var socket = io(namespace);
+
+            socket.on('connect', function() {
+                socket.emit('connected', {data: 'connected to the SocketServer...', socketid:''+socket.id});
+            });
+
+			socket.on('my_response', function(msg, cb) {
+                console.log(msg.chat_id)
+                var notification = new Audio('/static/sound/notification.mp3');
+                notification.play();
+            });
+
+			socket.on('reload', function(cb) {
+                window.location.reload();
+            });
+
+			socket.on('rederict', function(msg) {
+                window.location.href = '/community/'+msg.data;
+            });
+
+            const save_changes = document.getElementById('save_changes');
+            if (save_changes != null)
+			{
+				save_changes.addEventListener('click', update_changes);
+			}
+
+            const input = document.getElementById('profile_pic');
+
+            function update_changes() <!-- Функция добавления сообщества -->
+            {
+                if (checked == false)
+				{
+					put_here.innerText = "Уникальный логин не прошел проверку!";
+					return;
+				}
+
+				let login = document.getElementById('login').value;
+				let name = document.getElementById('name').value;
+				let checkedbox = document.getElementById('checkedbox').checked;
+				let desc = document.getElementById('desc').value;
+
+                socket.emit('create_community', {creator_login:'{{ user.login }}',login:login,name:name,checkedbox:checkedbox,desc:desc});
+            };
+
+			var timeoutHandle;
+
+			$(document).on('keypress', '#login', function (event) {
+				var regex = new RegExp("^[a-zA-Z\s0-9]+$");
+				var key = String.fromCharCode(!event.charCode ? event.which : event.charCode);
+				if (!regex.test(key)) {
+					event.preventDefault();
+					return false;
+				}
+			});
+
+			$('#login').bind('input', function() { 
+				value = $(this).val();
+				window.clearTimeout(timeoutHandle);
+				if (value != "")
+					timeoutHandle = setTimeout(function(){ testLogin(value); }, 1000);
+				else
+					timeoutHandle = setTimeout(function(){ remove(); }, 1000);
+			});
+
+			const put_here = document.getElementById('put-here');
+
+			function remove()
+            {
+                put_here.innerText = "";
+            };
+
+			function testLogin(value) <!-- Функция тестирования логина -->
+            {
+				if (value.length > 18)
+				{
+					put_here.innerText = "Вы привысили лимит в 18 символов";
+					return;
+				}
+				if (value.trim().replaceAll(" ", "").replaceAll("\n", "") == "")
+				{
+					put_here.innerText = "Вы ничего не ввели";
+					return;
+				}
+
+                socket.emit('test_ulogin', {login:value});
+            };
+
+			var checked = false;
+
+			socket.on('test_ulogin', function(msg) {
+                let test = msg.data;
+
+				if (test)
+				{
+					put_here.innerText = "Данное название доступно";
+					checked = true;
+				}
+				else
+				{
+					put_here.innerText = "Группа с таким названием уже существует";
+					checked = false;
+				}
+            });
+
+		});
+	</script>
+	
+	</head>
+    <body class="custom-scroll">
+		{% include 'header.html' %}
+			<div class="content">
+				{% include 'left-panel.html' %}
+                <div class="" style="width:50%">
+					<div class="right-panel right-panel-profile" style=" display: grid; grid-template-columns: auto 275px; height:fit-content; margin-top:0;">
+						<div class="messages-layout" style="border-right: 1px solid; border-color: #724C9D; ">
+							
+							<div class="chats-container" style="display: flex;flex-direction: column;align-content: space-between;width: -webkit-fill-available;height: -webkit-fill-available;">
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Уникальное название: </div>
+										<input maxlength="18" id="login" value="" style="margin-left: auto; margin-right: 10px;  width: 200px;">
+									</div>
+								</div>
+								<div id="put-here" style="margin-right: 10px;font-size: 14px; align-self: end;"></div>
+								<div class="name-profile">
+									<div class="link-profile" style="grid-template-columns: 190px auto !important;">
+										<div class="name" style="margin-left: 10px;">Название сообщества: </div>
+										<input maxlength="100" id="name" value="" style="margin-left: auto; margin-right: 10px;  width: -webkit-fill-available;">
+									</div>
+								</div>
+								
+								<div class="name-profile" >
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Создатель сообщества: </div>
+										<div style="margin-left: auto; margin-right: 10px;">
+											<input type="checkbox" id="checkedbox" style=" width: 10px; height: 10px;">
+											<label for="scales">Скрыть?</label>
+										</div>
+									</div>
+								</div>
+								
+								<div class="name-profile" style="margin-top: 10px;margin-bottom: 10px;height: auto;">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Описание: </div>
+										<textarea maxlength="150" id="desc" value="" style="margin-left: auto; margin-right: 10px;  width: 500px; height: 50px; resize: none; border-radius: 10px; outline: none; border-width: 2px; border-color: #724c9d;"></textarea>
+									</div>
+								</div>
+                             
+								
+							</div>
+						</div>
+						<div class="messages-layout">	
+							<div style="width: 275px; height:275px; justify-content: flex-start; border-bottom: none;">
+								<img style="width: inherit;height: inherit;border-top-right-radius: 15px;padding-left: 1px;" src="/static/images/neyasit_group_add.png" alt="">
+							</div>
+							<div class="profile-bottom-button">
+								<a id="save_changes" class="link-friend link-friend-profile" style="border-bottom-left-radius: 0px;">
+									<div>Создать сообщество</div>
+								</a>
+							</div>
+							<div class="profile-bottom-button">
+								<a href="/communities" class="link-friend link-friend-profile" style="border-bottom: 1px solid #724C9D; border-bottom-right-radius: 10px;border-bottom-left-radius: 0px;">
+									<div>Назад</div>
+								</a>
+							</div>
+						</div>
+					</div>
+					
+					
+					
+						
+					
+				</div>
+			</div>
+		
+	
+</body></html>

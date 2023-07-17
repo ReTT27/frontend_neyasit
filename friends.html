@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>Неясыть | Друзья</title>
+	{% include 'config.html' %}
+	<script type="text/javascript" charset="utf-8">
+        $(document).ready(function() {
+           
+			function getUrlParameter(name) {
+                name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+                var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+                var results = regex.exec(location.search);
+                return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+            };
+			
+			String.format = function() {
+                var s = arguments[0];
+                for (var i = 0; i < arguments.length - 1; i++) {
+                    var reg = new RegExp("\\{" + i + "\\}", "gm");
+                    s = s.replace(reg, arguments[i + 1]);
+                }
+                return s;
+            }    
+			
+			namespace = '/home';
+            var socket = io(namespace);
+
+            socket.on('connect', function() {
+                socket.emit('connected', {data: 'connected to the SocketServer...', socketid:''+socket.id});
+            });
+
+			
+
+			socket.on('reload', function(cb) {
+                window.location.replace(window.location.pathname)
+            });
+			
+			//
+
+			function addFriendsList(json) { <!-- Функция вывода друзей -->
+				for (const element of json) {
+					if (element.login != document.getElementById("current_user_login").innerHTML)
+					{
+						$('#friend-container').append(
+							'<div class="name-friend">'+
+								String.format('<a href="/{0}" class="link-friend">',element.login)+					
+									String.format('<img src="{0}" style="width: 30px; height: 30px; border-radius: 100px; margin-left: 15px;" alt="">',element.user_url_photo)+
+									String.format('<div class="name">{0}</div>', element.login)+
+								'</a>'+
+							'</div>'
+						);
+					}
+				}	
+			};
+
+			var timeoutHandle;
+			var friend_container = "";
+
+			$('#search-friend').bind('input', function() { 
+				value = $(this).val();
+				window.clearTimeout(timeoutHandle);
+				if (value != "")
+					timeoutHandle = setTimeout(function(){ searchFriends(value); }, 2000);
+				else
+					timeoutHandle = setTimeout(function(){ restoreFriends(); }, 2000);
+			});
+
+			function searchFriends(value) {
+				socket.emit('search_friend_request', {data:value});
+			};
+
+			function restoreFriends() {
+				document.getElementById("friend-container").innerHTML = friend_container;
+			};
+
+			socket.on('found_users', function(msg, cb) {
+				console.log('found users')
+				if(friend_container == "")
+					friend_container = document.getElementById("friend-container").innerHTML;
+                document.getElementById("friend-container").innerHTML = '';
+				addFriendsList(JSON.parse(msg.data));
+				if(document.getElementById("friend-container").children.length == 0)
+					document.getElementById("friend-container").innerHTML = '<div class="time">Ничего не найдено</div>'
+            });
+
+			//
+
+			const requests = document.querySelectorAll(".request");
+
+			requests.forEach((e) => {
+				e.addEventListener('click', function(ev)
+				{
+					let str = this.id.split('|');
+
+					if (str[0] == 'reject')
+					{
+						reject_friend_request(str[1]);
+					}
+					else
+					{
+						accept_friend_request(str[1]);
+					}
+				});
+			});
+
+			function reject_friend_request(login)
+			{
+				socket.emit('reject_friend_request', {data:login});
+			};
+
+			function accept_friend_request(login)
+			{
+				socket.emit('accept_friend_request', {data:login});
+			};
+
+        });
+    </script>
+</head>
+<body>
+	<div id="current_user_login" style="display: none;">{{ current_user.login }}</div>
+	{% include 'header.html' %}
+	<div class="content">
+		{% include 'left-panel.html' %}
+		<div class="right-panel" style=" display: grid; grid-template-columns: 50% auto;">
+			<div class="messages-layout" style="border-right: 1px solid; border-color: #724C9D; ">
+				<div class="header-panel" style="justify-content: flex-start;">
+					<div class="search"> <i class="fa fa-search" style="margin-left: 18px;"></i>
+						<input id="search-friend" type="text" name="search" placeholder="Поиск друга" style="outline: none!important;width: 200px;background-color: transparent;color: white;" />
+					</div>
+				</div>
+				<div class="Transition slide">
+					<div class="Transition__slide--active">
+						<div class="FriendList custom-scroll">
+							<div id="friend-container" class="chats-container">
+								{% if friends %}
+									{% for friend in friends %}
+										<div class="name-friend">
+											<a href="/{{ friend.login }}" class="link-friend">								
+												<img src="{{ friend.user_url_photo }}" style="width: 30px; height: 30px; border-radius: 100px; margin-left: 15px;" alt="">
+												{% if friend.user_fi != None %}
+													<div class="name">{{ friend.user_fi }}</div>
+												{% else %}
+													<div class="name">{{ friend.login }}</div>
+												{% endif %}
+											</a>
+											<a href="/messenger?create_chat_with={{ friend.login }}" class="links"><i class="fas fa-comments"></i></a>
+										</div>	
+									{% endfor %}
+								{% else %}
+									<div class="time">
+										Нет друзей
+									</div>	
+								{% endif %}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="messages-layout">
+				<div class="header-panel" style="justify-content: flex-start;">
+					<div class="header-name" style="margin-left: 10px">
+						<div style="font-size: 1.3em; margin-left: 10px; margin-top: 3px;">Заявки в друзья</div>
+					</div>
+				</div>
+				<div class="Transition slide">
+					<div class="Transition__slide--active">
+						<div class="FriendList custom-scroll">
+							<div class="chats-container">
+								{% if subs %}
+									{% for sub in subs %}
+										<a href="/{{ sub.login }}" class="link-friend">
+											<div class="name-friend">
+												<img src="{{ sub.user_url_photo }}" style="width: 30px; height: 30px; border-radius: 100px; margin-left: 15px;" alt="">
+												{% if sub.user_fi != None %}
+													<div class="name">{{ sub.user_fi }}</div>
+												{% else %}
+													<div class="name">{{ sub.login }}</div>
+												{% endif %}
+												<!-- <a href="/friends?reject_friend_request={{ sub.login }}" class="links"><i class="fas fa-user-minus"></i></a> -->
+												<!-- <a href="/friends?accept_friend_request={{ sub.login }}" class="links"><i class="fas fa-user-plus"></i></a> -->
+												<a class="links request" id="reject|{{ sub.login }}"><i class="fas fa-user-minus"></i></a>
+												<a class="links request" id="accept|{{ sub.login }}"><i class="fas fa-user-plus"></i></a>
+											</div>	
+										</a>
+									{% endfor %}
+								{% else %}
+										<div class="time">
+											Нет заявок
+										</div>	
+								{% endif %}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

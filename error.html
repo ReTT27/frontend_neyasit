@@ -1,0 +1,21 @@
+<!doctype html>
+<html style="height: 100%;">
+<head>
+<meta charset="utf-8"/>
+<title>{{ error }}</title>
+<script>
+	function back() {
+		window.location.href = "/messenger";
+	}
+
+	setTimeout(back, 5000);
+</script>
+</head>
+<body style="font-family: sans-serif;background-color: rgba(44,27,71,1); margin:0px; height: 100%; color:white;">
+    <div style="display: flex;flex-direction: column;align-items: center;position: relative;top: 50%;transform: translateY(-50%);">
+		<img style="width: 25%; height: 25%;" src="/static/images/neyasit_dead.png">
+		<h2>Ошибка</h2>
+		<text>{{ error }}</text>
+	</div>
+</body>
+</html>

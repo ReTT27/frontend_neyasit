@@ -1,0 +1,334 @@
+<!doctype html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>Профиль | {% if user_page %}{% if user_page.user_fi %} {{ user_page.user_fi }} {% else %} {{ user_page.login }} {% endif %}{% endif %}</title>
+	
+	{% include 'config.html' %}
+	
+	<script>
+		$(document).ready(function() { <!-- Функция для определения падежа -->
+			function declOfNum(n, text_forms) {
+				n = Math.abs(n) % 100; 
+				var n1 = n % 10;
+				if (n > 10 && n < 20) { return text_forms[2]; }
+				if (n1 > 1 && n1 < 5) { return text_forms[1]; }
+				if (n1 == 1) { return text_forms[0]; }
+				return text_forms[2];
+			}
+
+			$('#pc').html(declOfNum(Number(document.getElementById('pv').innerText), ['подписчик', 'подписчика', 'подписчиков']));
+			$('#dc').html(declOfNum(Number(document.getElementById('dv').innerText), ['друг', 'друга', 'друзей']));
+			$('#sc').html(declOfNum(Number(document.getElementById('sv').innerText), ['сообщество', 'сообщества', 'сообществ']));
+
+			// enter the post
+
+			const el = document.getElementById('contenteditable');
+			if (el != null)
+			{
+				el.addEventListener('input', () => check(el.innerHTML));
+				function check(t){if(t!=''){el.classList.remove("ph")}else{el.classList.add("ph")}}
+			}
+
+			namespace = '/home';
+            var socket = io(namespace);
+
+            socket.on('connect', function() {
+                socket.emit('connected', {data: 'connected to the SocketServer...', socketid:''+socket.id});
+            });
+
+			socket.on('my_response', function(msg, cb) {
+                console.log(msg.chat_id)
+                var notification = new Audio('/static/sound/notification.mp3');
+                notification.play();
+            });
+
+			socket.on('reload', function(cb) {
+                window.location.reload();
+            });
+
+			//console.log(document.getElementById('add-to-friends').innerHTML)
+			const atf = document.getElementById('add-to-friends');
+			if (atf != null)
+			{
+				atf.addEventListener('click', function(ev)
+				{
+					value = "{{ user_page.login }}";
+
+					socket.emit('send_friend_request', {data:value});
+				});
+			}
+
+			const rs = document.getElementById('reject-sub');
+			if (rs != null)
+			{
+				rs.addEventListener('click', function(ev)
+				{
+					value = "{{ user_page.login }}";
+
+					socket.emit('reject_sub', {data:value});
+				});
+			}
+
+			const pp = document.getElementById('publish-post');
+			if (pp != null)
+			{
+				pp.addEventListener('click', function(ev)
+				{
+					value = "{{ user.login }}";
+
+					addition = "[]";
+
+					text = el.innerHTML.replaceAll('<div>', '\n').replaceAll('</div>', '').replaceAll('<br>','');
+					
+					if(images.length > 0)
+						addition = "true";
+					else if (docs.length > 0)
+						addition = "true";
+					console.log(images);
+					console.log(docs);
+
+					file = [];
+
+					for (var x = 0; x < images.length; x++) {
+						file.push("image"+"_"+x+"_"+Date.now()+"_"+images[x].lastModified+"_"+images[x].size+"_"+images[x].name);
+					}
+
+					for (var x = 0; x < docs.length; x++) {
+						file.push("doc"+"_"+x+"_"+Date.now()+"_"+docs[x].lastModified+"_"+docs[x].size+"_"+docs[x].name);
+					}
+
+					if(file.length != 0) 
+					{
+						addition = JSON.stringify(file);
+					}
+
+					console.log(JSON.stringify(file));
+
+					dict = []
+
+					for(var x = docs.length; x > 0; x--) {
+						dict["doc"+(x-1)] = file.pop();
+					}
+
+					for(var x = images.length; x > 0; x--) {
+						dict["img"+(x-1)] = file.pop();
+					}
+					console.log(dict);
+					socket.emit('publish_post', {login:value,text:text,addition:addition});
+
+					upload_file(dict,false,-1);
+				});
+			}
+			
+			const delete_posts = document.querySelectorAll("#delete-post");
+
+			delete_posts.forEach((e) => {
+				e.addEventListener('click', function(ev)
+				{
+					value = "{{ user_page.login }}";
+
+					id = e.name.split('-')[1];
+
+					socket.emit('delete_post', {login:value,id:id});
+				});
+			});
+
+			const like_buttons = document.querySelectorAll("#like-button");
+			//console.log(like_buttons);
+
+			like_buttons.forEach((e) => {
+				e.addEventListener('click', function(ev)
+				{
+					value = "{{ user.login }}";
+
+					id = e.name.split('_')[1];
+
+					socket.emit('like_click', {login:value,id:id});
+				});
+			});
+
+			socket.on('like_set', function(msg) {
+
+				let post = document.getElementsByName('id_'+msg.post_id)[0];
+
+				post.getElementsByTagName('div')[1].innerText = msg.likes;
+				
+				if (msg.up)
+					post.getElementsByTagName('i')[0].classList.replace('fal','fa');
+				else
+					post.getElementsByTagName('i')[0].classList.replace('fa','fal');
+            });
+
+		});
+	</script>
+	
+	<body class="custom-scroll">
+		{% include 'header.html' %}
+		{% if user_page %}
+			<div class="content">
+				{% include 'left-panel.html' %}
+				<div class="" style="width:50%">
+					<div class="right-panel right-panel-profile" style=" display: grid; grid-template-columns: 275px auto; height:fit-content; margin-top:0;">
+						<div class="messages-layout" style="border-right: 1px solid; border-color: #724C9D; ">
+							<div style="width: 275px; height:275px; justify-content: flex-start; border-bottom: none;">
+								<img style="width: inherit;height: inherit;border-top-left-radius: 15px;" src="{{ user_page.user_url_photo }}" style="border-radius: 100px" alt="" />
+							</div>
+							<div class="profile-bottom-button">
+								{% if current_user.login == user_page.login %}
+									<a href="/settings" class="link-friend link-friend-profile">
+										<div>Редактировать профиль</div>
+									</a>
+								{% else %}
+									{% if friend %}
+										<a href="/messenger?create_chat_with={{ user_page.login }}" class="link-friend link-friend-profile">
+											<div>Написать сообщение</div>
+										</a>
+									{% else %}
+										{% if sub %}
+											<a id="reject-sub" class="link-friend link-friend-profile">
+												<div>Отменить подписку</div>
+											</a>
+										{% else %}
+											<a id="add-to-friends" class="link-friend link-friend-profile">
+												<div>Добавить в друзья</div>
+											</a>
+										{% endif %}
+									{% endif %}
+								{% endif %}
+							</div>
+						</div>
+						<div class="messages-layout">
+							<div class="header-panel" style="justify-content: flex-start; height: 65px">
+								<div class="header-name" style="margin-left: 15px; margin-top: 3px;">
+									<div style="font-size: 1.3em;">{% if user_page.user_fi %} {{ user_page.user_fi }} {% else %} {{ user_page.login }} {% endif %}</div>
+									<!-- <div class="search"> <i class="fa fa-search" style="margin-left: 30px;"></i>
+										<input type="text" name="search" placeholder="Поиск" style="outline: none!important;width: 150px;background-color: transparent;color: white;">
+									</div> -->
+								</div>
+							</div>
+							<div class="chats-container" style="display: flex;flex-direction: column;align-content: space-between;width: -webkit-fill-available;height: -webkit-fill-available;">
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">День рождения: </div>
+										<div class="" style="margin-left: auto; margin-right: 10px;">{{ birthday }}</div>
+									</div>
+								</div>
+								<div class="name-profile">
+									<div class="link-profile">
+										<div class="name" style="margin-left: 10px;">Родной город: </div>
+										<div class="" style="margin-left: auto; margin-right: 10px;">{{ city }}</div>
+									</div>
+								</div>
+								<div style="display: flex; flex-direction: row; justify-content: space-around; margin-top: auto;margin-bottom: 20px;">
+									<div class="profile-stats">
+										<div id="pv" class="counter">{{ subs_count }}</div>
+										<div id="pc" class="name-counter">подписчики</div>
+									</div>
+									<div class="profile-stats">
+										<div id="dv" class="counter">{{ friends_count }}</div>
+										<div id="dc" class="name-counter">друзья</div>
+									</div>
+									<div class="profile-stats">
+										<div id="sv" class="counter">{{ communities_count }}</div>
+										<div id="sc" class="name-counter">сообщества</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					
+					{% if current_user.login == user_page.login %}
+						<div class="right-panel right-panel-profile">
+							<div class="profile-post">
+								<div class="ph post-write" id="contenteditable" contenteditable></div>
+								<hr style="display: block;border: 0;border-top: 1px solid #724c9d5e;padding: 0;margin: 15px 15px 0px 15px;">
+								<div class="post-images">
+									
+								</div>
+								<div class="post-document">
+									
+								</div>
+								<!-- <div type="button" onclick="upload_file()">ЗАГРУЗИТЬ</div> -->
+								<div class="post-panel" style="border-top: 1px solid #724C9D;">	
+									<div class="profile-post-button" style="width:120px">
+										<a id="publish-post" class="link-post-button" style="border-bottom-right-radius: 10px;">
+											<div>Опубликовать</div>
+										</a>
+									</div>
+								</div>
+							</div>
+						</div>
+					{% endif %}
+					<script src="{{ url_for('static',filename='scripts/upload_files.js') }}"></script>
+					{% if posts %}
+						{% for post in posts %}
+							<div class="right-panel right-panel-profile">
+								<div class="profile-post">
+									<div class="post-panel" style="border-bottom: 1px solid #724C9D;">
+										<div class="profile-post-button" style="gap: 5px; margin-right: auto;margin-left: 15px;display: flex;justify-content: flex-start;flex-direction: row;align-items: center;">
+											<i class="fal fa-calendar"></i>{{ post['send_time'].strftime("%d.%m.%Y %H:%M") }}
+										</div>				
+										{% if current_user.login == user_page.login or current_user.role > 0 %}	
+											<div class="profile-post-button" style="width:120px">
+												<a id="delete-post" name="post-{{ post['id'] }}" class="link-post-button">
+													{% if current_user.role > 0%}<i class="fal fa-hammer flex-center" style="margin-right: 5px;"></i>{% endif %}<div>Удалить</div>
+												</a>
+											</div>
+										{% endif %}	
+
+										{% set upthumb = false %}
+
+										{% if post['id'] in likes %}
+											{% set upthumb = true %}
+										{% endif %}
+
+										<div class="profile-post-button" style="width:60px;">
+											<a id="like-button" name="id_{{ post['id'] }}" class="link-post-button" style="border-top-right-radius: 10px;">
+												<div style="display: flex; gap: 3px; align-items: center;">
+													<i class="fa{% if not upthumb %}l{% endif %} fa-thumbs-up"></i>
+													<div style="font-size: 0.8em;">{{ post['count_likes'] | numbers_cut }}</div>
+												</div>
+											</a>
+										</div>
+									</div>
+
+									<div class="post">{{ post['text'] }}</div>
+
+									<div class="post-images post-margin">
+										{% for photo in photos %}
+											{% set a = photo['id'] | int %}
+											{% set t = post['addition'] | to_dict %}
+											{% if a in t %}
+												<div class="post-media">
+													<img class="post-image" src="/static/storage/{{ photo['from_login'] }}/photo/{{ photo['saved_file_name'] }}" alt="image"/>
+												</div>
+											{% endif %}
+										{% endfor %}
+									</div>
+
+									<div class="post-document post-margin">
+										{% for document in documents %}
+											{% set a = document['id'] | int %}
+											{% set t = post['addition'] | to_dict %}
+											{% if a in t %}
+												<div class="post-doc">
+													<i class="box-1 fas fa-file-alt"></i>
+													<a href="/static/storage/{{ document['from_login'] }}/document/{{ document['saved_file_name'] }}" target="_blank" class="box-2 b2">{{ document['file_name'] }}</a>
+													<div class="box-3 page_doc_description_row"><div class="page_doc_size"><script>document.write(getFileSize(Number("{{ document['file_size'] }}")));</script></div></div>
+												</div>
+											{% endif %}
+										{% endfor %}
+										
+									</div>
+
+								</div>
+							</div>
+						{% endfor %}
+					{% endif %}
+				</div>
+			</div>
+		{% endif %}
+	</body>
+</html>
